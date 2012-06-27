@@ -1,0 +1,28 @@
+Source: pgpool2
+Section: unknown
+Priority: extra
+Maintainer: Matt Erkkila <matt.erkkila@rd.io>
+Build-Depends: debhelper (>= 7), autotools-dev, flex, libpq-dev (>= 9.1), libpq5 (>= 9.1)
+Standards-Version: 3.8.3
+Homepage: http://www.pgpool.net/
+Vcs-Git: https://github.com/rdio/pgpool2.git
+Vcs-Browser: https://github.com/rdio/pgpool
+
+Package: pgpool2
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libpq5 (>= 9.1)
+Description: pgpool2
+ A postgresql proxy.
+
+Package: postgresql-PGVERSION-pgpool2
+Architecture: any
+Depends: postgresql-PGVERSION, ${misc:Depends}, ${shlibs:Depends}, pgpool2
+Description: connection pool server and replication proxy for PostgreSQL - modules
+ pgpool-II is a middleware that works between PostgreSQL servers and a
+ PostgreSQL database client.  This package contains support modules for
+ the PostgreSQL PGVERSION server:
+ .
+  * pgpool_adm
+  * pgpool-recovery
+  * pgpool-regclass
+  * pgpool-walrecrunning (PostgreSQL 9.0 and later)

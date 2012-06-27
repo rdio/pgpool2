@@ -1,0 +1,59 @@
+#!/usr/bin/make -f
+
+SRCDIR = .
+clean: debian/control
+.PHONY: debian/control
+
+LDFLAGS += -Wl,--as-needed
+
+D=debian/pgpool2
+
+debian/control: debian/control.in debian/pgversions
+	(set -e; \
+        VERSIONS=`cat debian/pgversions` || exit $$?; \
+        grep-dctrl -vP PGVERSION $< > $@.pgxs_tmp; \
+        for v in $$VERSIONS; \
+        do                                         \
+                grep -q "^$$v" debian/pgversions   \
+                && grep-dctrl -P PGVERSION $<      \
+                | sed -e "s:PGVERSION:$$v:" >> $@.pgxs_tmp; \
+        done; \
+        mv $@.pgxs_tmp $@) || (rm -f $@.pgxs_tmp; exit 1)
+
+override_dh_auto_clean:
+	dh_auto_clean
+	$(MAKE) -C sql clean
+	$(MAKE) -C pgpool_adm clean USE_PGXS=1
+
+override_dh_auto_configure:
+	./configure --prefix=/usr \
+		--sysconfdir=/etc/pgpool2 \
+		--bindir=/usr/sbin \
+		--includedir=/usr/include/pgpool2 \
+		--disable-rpath
+
+override_dh_auto_install:
+	dh_auto_install
+	set -e ; \
+	for v in `cat debian/pgversions` ; do \
+		echo "# $$v ##################################################################" ; \
+		PG_CONFIG=/usr/lib/postgresql/$$v/bin/pg_config ; \
+		$(MAKE) -C sql clean PG_CONFIG=$$PG_CONFIG ; \
+		$(MAKE) -C sql PG_CONFIG=$$PG_CONFIG ; \
+		$(MAKE) -C sql install DESTDIR=$(CURDIR)/debian/postgresql-$$v-pgpool2 PG_CONFIG=$$PG_CONFIG ; \
+		if [ -f $$($$PG_CONFIG --includedir-server)/foreign/foreign.h ] ; then \
+			$(MAKE) -C pgpool_adm clean USE_PGXS=1 PG_CONFIG=$$PG_CONFIG ; \
+			$(MAKE) -C pgpool_adm USE_PGXS=1 PG_CONFIG=$$PG_CONFIG CFLAGS="$(CFLAGS) -I../pcp" LDFLAGS="$(LDFLAGS) -L../pcp/.libs" ; \
+			$(MAKE) -C pgpool_adm install DESTDIR=$(CURDIR)/debian/postgresql-$$v-pgpool2 USE_PGXS=1 PG_CONFIG=$$PG_CONFIG ; \
+		fi \
+	done
+
+override_dh_install:
+	# pgpool.conf is handled by ucf
+	mkdir -p debian/tmp/usr/share/pgpool2
+	mv debian/tmp/etc/pgpool2/pgpool.conf.sample debian/tmp/usr/share/pgpool2/pgpool.conf
+	set -e ; for f in pcp.conf pool_hba.conf ; do mv debian/tmp/etc/pgpool2/$$f.sample debian/tmp/etc/pgpool2/$$f ; done
+	dh_install --list-missing
+
+%:
+	dh $@
